@@ -1,0 +1,257 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Untitled Document</title>
+
+
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.2/leaflet.css" />
+    <link rel="stylesheet" href="http://ol3js.org/en/master/css/ol.css" type="text/css">
+
+
+    <script src="http://code.jquery.com/jquery-latest.js" type="text/javascript"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?sensor=false"></script>
+    <script src="http://ol3js.org/en/master/build/ol.js" type="text/javascript"></script>
+    <script src="http://cdn.leafletjs.com/leaflet-0.7.2/leaflet.js"></script>
+    <script src="src/topojson.min.js"></script>
+
+
+
+
+    <style>
+    .container {
+        width: 600px;
+        background-color:#CCCCCC;
+        display: block;
+        margin-bottom: 30px;
+    }
+    .map {
+        width: 100%;
+        height: 375px;
+        position:relative;
+        z-index: 1;
+    }
+    .buttons {
+        padding: 10px;
+    }
+    .time {
+        /*float: right;*/
+        padding-left: 10px;
+        padding-right: 10px;
+        font-weight: bold;
+        color: #C00;
+    }
+    </style>
+
+</head>
+
+
+
+
+<body>
+
+    <div class="container">
+        <div class="map" id="google">
+        </div>
+
+        <div class="buttons">
+            <input type="button" value="Add Geojson" onclick="addGoogleGeoJSON()" />
+            <span id="Googletime" class="time">TIME</span>(ms) 
+            <input type="button" value="Add Topojson"  onclick="addGoogleTopoJSON()"/>
+            <span id="Googletime" class="time">TIME</span>(ms) 
+        </div>
+    </div>
+
+
+
+    <div class="container">
+        <div class="map" id="leaflet">
+        </div>
+
+        <div class="buttons">
+            <input type="button" value="Add Geojson" onclick="addLeafletGeoJSON()" />
+            <span id="Leaflettime" class="time">TIME</span>(ms) 
+            <input type="button" value="Add Topojson" onclick="addLeafletTopoJSON()" />
+            <span id="Leaflettime" class="time">TIME</span>(ms) 
+        </div>
+    </div>
+
+
+
+    <div class="container">
+        <div class="map" id="openlayers">
+        </div>
+
+        <div class="buttons">
+            <input type="button" value="Add Geojson" onclick="addOLGeoJSON()" />
+            <span id="OLtime" class="time">TIME</span>(ms) 
+            <input type="button" value="Add Topojson" onclick="addOLTopoJSON()"  />
+            <span id="OLtime" class="time">TIME</span>(ms) 
+        </div>
+    </div>
+
+
+
+
+
+    <script>
+    var lat = 41;
+    var long = -110;
+    var zoom = 4;
+    var mapGoogle;
+    var mapLeaflet;
+    var mapOL;
+
+
+
+    function addGoogleMap() {
+
+        var mapOptions = {
+            zoom: zoom,
+            center: new google.maps.LatLng(lat, long)
+        };
+
+        mapGoogle = new google.maps.Map(document.getElementById('google'),
+            mapOptions);
+    }
+
+
+    function addGoogleTopoJSON() {
+
+        var promise = $.getJSON("data/township.topo.json"); //same as map.data.loadGeoJson();
+        promise.then(function(data) {
+        	console.log(data)
+        	topojsonobject = topojson.feature(data, data.objects.township)
+            mapGoogle.data.addGeoJson(topojsonobject);
+        });
+    }
+
+    function addGoogleGeoJSON() {
+
+        var promise = $.getJSON("data/simp_cnty_west.geojson"); //same as map.data.loadGeoJson();
+        promise.then(function(data) {
+        	var time1 = window.performance.now()
+            mapGoogle.data.addGeoJson(data);
+                        var elapsed = Math.round((window.performance.now() - time1) * 100) / 100
+            $("#Googletime").text(elapsed);
+        });
+    }
+
+
+
+
+    function addLeafletMap() {
+        mapLeaflet = L.map('leaflet').setView([lat, long], zoom);
+
+        L.tileLayer('http://{s}.tile.thunderforest.com/landscape/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>'
+        }).addTo(mapLeaflet);
+
+
+    }
+
+
+    function addLeafletGeoJSON() {
+
+        var promise = $.getJSON("data/simp_cnty_west.geojson"); //same as map.data.loadGeoJson();
+        promise.then(function(data) {
+        	var time1 = window.performance.now()
+            L.geoJson(data).addTo(mapLeaflet)
+                        var elapsed = Math.round((window.performance.now() - time1) * 100) / 100
+            $("#Leaflettime").text(elapsed);
+        });
+    }
+
+
+
+
+
+    function addOpenLayersMap() {
+
+        var tile = new ol.layer.Tile({
+            source: new ol.source.Stamen({
+                layer: 'watercolor'
+            })
+        });
+
+        var tileLabels = new ol.layer.Tile({
+            source: new ol.source.Stamen({
+                layer: 'terrain-labels'
+            })
+        });
+
+        mapOL = new ol.Map({
+            layers: [tile, tileLabels],
+            target: 'openlayers',
+            view: new ol.View2D({
+                center: ol.proj.transform([-119.768812, 36.745379], 'EPSG:4326', 'EPSG:3857'),
+                zoom: 5
+            })
+        });
+
+
+    }
+
+    function addOLGeoJSON() {
+
+        
+
+        var promise = $.getJSON("data/simp_cnty_west.geojson"); //same as map.data.loadGeoJson();
+
+        promise.then(function(data) {
+            var time1 = window.performance.now()
+
+            var vectorLayer = new ol.layer.Vector({
+                source: new ol.source.GeoJSON({
+                    projection: 'EPSG:3857',
+                    object: data
+                })
+            })
+            mapOL.addLayer(vectorLayer)
+            var elapsed = Math.round((window.performance.now() - time1) * 100) / 100
+            $("#OLtime").text(elapsed);
+
+        });
+
+    }
+
+
+        function addOLTopoJSON() {
+
+        
+
+        var promise = $.getJSON("data/township.topo.json"); //same as map.data.loadGeoJson();
+
+        promise.then(function(data) {
+            var time1 = window.performance.now()
+            console.log(data)
+
+            var vectorLayer = new ol.layer.Vector({
+                source: new ol.source.TopoJSON({
+                    projection: 'EPSG:3857',
+                    object: data
+                })
+            })
+
+            // mapOL.addLayer(vectorLayer)
+            var elapsed = Math.round((window.performance.now() - time1) * 100) / 100
+            $("#OLtime").text(elapsed);
+
+        });
+
+    }
+
+    $(document).ready(function() {
+        addGoogleMap();
+        addLeafletMap();
+        addOpenLayersMap();
+    });
+    </script>
+
+
+
+</body>
+
+</html>
