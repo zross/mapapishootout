@@ -46,21 +46,25 @@
     </style>
 
 </head>
-
-
-
-
 <body>
-
+	<div id="stats" style="float:right;">
+	Stats
+	</br>
+	<input type="button" value="Run google stats" onclick="runGoogleStats()" />
+	<span id="google-geo-time-avg" class="time">TIME</span>(ms)
+	<span id="google-geo-time-rep" class="time">REPS</span>
+	</div>
+	
     <div class="container">
         <div class="map" id="google">
         </div>
 
-        <div class="buttons">
+        <div id="google" class="buttons">
             <input type="button" value="Add Geojson" onclick="addGoogleGeoJSON()" />
-            <span id="Googletime" class="time">TIME</span>(ms) 
+            <span id="google-geo-time" class="time">TIME</span>(ms) 
             <input type="button" value="Add Topojson"  onclick="addGoogleTopoJSON()"/>
-            <span id="Googletime" class="time">TIME</span>(ms) 
+            <span id="google-topo-time" class="time">TIME</span>(ms) 
+            <input type="button" value="Clear"  onclick="clearGoogleJson()"/>
         </div>
     </div>
 
@@ -69,12 +73,13 @@
     <div class="container">
         <div class="map" id="leaflet">
         </div>
-
-        <div class="buttons">
+        
+        <div id="leaflet" class="buttons">
             <input type="button" value="Add Geojson" onclick="addLeafletGeoJSON()" />
-            <span id="Leaflettime" class="time">TIME</span>(ms) 
+            <span id="leaflet-geo-time" class="time">TIME</span>(ms) 
             <input type="button" value="Add Topojson" onclick="addLeafletTopoJSON()" />
-            <span id="Leaflettime" class="time">TIME</span>(ms) 
+            <span id="leaflet-topo-time" class="time">TIME</span>(ms) 
+            <input type="button" value="Clear"  onclick="clearLeafletJson()"/>
         </div>
     </div>
 
@@ -84,11 +89,12 @@
         <div class="map" id="openlayers">
         </div>
 
-        <div class="buttons">
+        <div id="openlayers" class="buttons">
             <input type="button" value="Add Geojson" onclick="addOLGeoJSON()" />
-            <span id="OLtime" class="time">TIME</span>(ms) 
+            <span id="ol-geo-time" class="time">TIME</span>(ms) 
             <input type="button" value="Add Topojson" onclick="addOLTopoJSON()"  />
-            <span id="OLtime" class="time">TIME</span>(ms) 
+            <span id="ol-topo-time" class="time">TIME</span>(ms) 
+            <input type="button" value="Clear"  onclick="clearOpenLayersJson()"/>
         </div>
     </div>
 
@@ -102,8 +108,24 @@
     var zoom = 4;
     var mapGoogle;
     var mapLeaflet;
+    var mapLeafletLayers = [];
     var mapOL;
-
+    
+    //data
+    var simpleCntyWestPromise = $.getJSON("data/simp_cnty_west.geojson"); //same as map.data.loadGeoJson();
+    var countyPromise = $.getJSON("data/county.topojson"); //same as map.data.loadGeoJson();
+    
+    function timeExecution(executeFn){
+    	var time1 = window.performance.now();
+        
+    	executeFn();
+       
+    	return Math.round((window.performance.now() - time1) * 100) / 100;
+    };
+    
+    function statRunner(executeFn, repetitions){
+    	
+    }
 
 
     function addGoogleMap() {
@@ -113,33 +135,66 @@
             center: new google.maps.LatLng(lat, long)
         };
 
-        mapGoogle = new google.maps.Map(document.getElementById('google'),
-            mapOptions);
-    }
-
-
-    function addGoogleTopoJSON() {
-
-        var promise = $.getJSON("data/township.topo.json"); //same as map.data.loadGeoJson();
-        promise.then(function(data) {
-        	console.log(data)
-        	topojsonobject = topojson.feature(data, data.objects.township)
-            mapGoogle.data.addGeoJson(topojsonobject);
-        });
-    }
+        mapGoogle = new google.maps.Map(document.getElementById('google'), mapOptions);
+    };
 
     function addGoogleGeoJSON() {
 
-        var promise = $.getJSON("data/simp_cnty_west.geojson"); //same as map.data.loadGeoJson();
-        promise.then(function(data) {
-        	var time1 = window.performance.now()
-            mapGoogle.data.addGeoJson(data);
-                        var elapsed = Math.round((window.performance.now() - time1) * 100) / 100
-            $("#Googletime").text(elapsed);
+    	return simpleCntyWestPromise.then(function(data) {
+            var executionTime = timeExecution(function(){
+            	mapGoogle.data.addGeoJson(data);	
+            });
+    		$("#google-geo-time").text(executionTime);
+    		return executionTime;
+        });
+    }
+    
+
+    function addGoogleTopoJSON() {
+        
+        countyPromise.then(function(data) {
+     		$("#google-topo-time").text(timeExecution(function(){
+     			topojsonobject = topojson.feature(data, data.objects.county)
+                mapGoogle.data.addGeoJson(topojsonobject);	
+     		}));
         });
     }
 
+    function clearGoogleJson(){
+    	mapGoogle.data.setMap(null);
+    	mapGoogle.data = new google.maps.Data();
+    	mapGoogle.data.setMap(mapGoogle);
+    	$("#google span").text("TIME");
+    };
 
+    function runGoogleStats(){
+    	var reps = 100;
+    	var runTimes = [];
+    	
+		function runGoogle(){
+			addGoogleGeoJSON().then(function(time){
+				reps--;
+				if(reps>-1){
+					runTimes.push(time);
+					clearGoogleJson();
+					$("#google-geo-time-rep").text(reps);
+					
+					
+					if(reps === 0){
+						$("#google-geo-time-avg").text(runTimes.reduce(function(a, b) {
+				    		return a + b 
+				    	})/runTimes.length);
+						return;
+					}
+					
+					runGoogle();		
+				}
+			});
+		}
+		
+		runGoogle();
+     	
+    }
 
 
     function addLeafletMap() {
@@ -149,25 +204,45 @@
             attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>'
         }).addTo(mapLeaflet);
 
-
     }
 
-
+    
     function addLeafletGeoJSON() {
 
-        var promise = $.getJSON("data/simp_cnty_west.geojson"); //same as map.data.loadGeoJson();
-        promise.then(function(data) {
-        	var time1 = window.performance.now()
-            L.geoJson(data).addTo(mapLeaflet)
-                        var elapsed = Math.round((window.performance.now() - time1) * 100) / 100
-            $("#Leaflettime").text(elapsed);
+        //var promise = $.getJSON("data/simp_cnty_west.geojson"); //same as map.data.loadGeoJson();
+        simpleCntyWestPromise.then(function(data) {
+            $("#leaflet-geo-time").text(timeExecution(function(){
+            	 var leafletLayer = L.geoJson(data);
+                 leafletLayer.addTo(mapLeaflet);
+                 mapLeafletLayers.push(leafletLayer);
+            }));
         });
     }
+   
+    
+    function addLeafletTopoJSON() {
 
+        //var promise = $.getJSON("data/county.topojson"); //same as map.data.loadGeoJson();
+        countyPromise.then(function(data) {
+            $("#leaflet-topo-time").text(timeExecution(function() {
+            	var geojson = topojson.feature(data, data.objects.county);
+                var leafletLayer = L.geoJson(geojson);
+                leafletLayer.addTo(mapLeaflet);
+                mapLeafletLayers.push(leafletLayer);
+			}));
+        });
+    }
+    
+    function clearLeafletJson(){
+    	for(var i=0;i<mapLeafletLayers.length;i++){
+    		mapLeaflet.removeLayer(mapLeafletLayers[i]);
+    	}
+    	$("#leaflet span").text("TIME");
+    };
 
+    
 
-
-
+    
     function addOpenLayersMap() {
 
         var tile = new ol.layer.Tile({
@@ -191,58 +266,66 @@
             })
         });
 
-
     }
 
+    
     function addOLGeoJSON() {
 
-        
+    	//var promise = $.getJSON("data/simp_cnty_west.geojson"); //same as map.data.loadGeoJson();
 
-        var promise = $.getJSON("data/simp_cnty_west.geojson"); //same as map.data.loadGeoJson();
-
-        promise.then(function(data) {
-            var time1 = window.performance.now()
-
-            var vectorLayer = new ol.layer.Vector({
-                source: new ol.source.GeoJSON({
-                    projection: 'EPSG:3857',
-                    object: data
+        simpleCntyWestPromise.then(function(data) {
+            $("#ol-geo-time").text(timeExecution(function(){
+            	var vectorLayer = new ol.layer.Vector({
+                    source: new ol.source.GeoJSON({
+                        projection: 'EPSG:3857',
+                        object: data
+                    })
                 })
-            })
-            mapOL.addLayer(vectorLayer)
-            var elapsed = Math.round((window.performance.now() - time1) * 100) / 100
-            $("#OLtime").text(elapsed);
-
+                mapOL.addLayer(vectorLayer);
+            	vectorLayer.set("layerName","geojson");
+            }));
         });
 
     }
 
 
-        function addOLTopoJSON() {
+    function addOLTopoJSON() {
 
-        
+    	//var promise = $.getJSON("data/county.topojson"); //same as map.data.loadGeoJson();
 
-        var promise = $.getJSON("data/township.topo.json"); //same as map.data.loadGeoJson();
-
-        promise.then(function(data) {
-            var time1 = window.performance.now()
-            console.log(data)
-
-            var vectorLayer = new ol.layer.Vector({
-                source: new ol.source.TopoJSON({
-                    projection: 'EPSG:3857',
-                    object: data
-                })
-            })
-
-            // mapOL.addLayer(vectorLayer)
-            var elapsed = Math.round((window.performance.now() - time1) * 100) / 100
-            $("#OLtime").text(elapsed);
-
+        countyPromise.then(function(data) {
+			$("#ol-topo-time").text(timeExecution(function(){
+			  var vectorLayer = new ol.layer.Vector({
+	                source: new ol.source.TopoJSON({
+	                    projection: 'EPSG:3857',
+	                    object: data
+	                    //url:"data/township.topo.json"
+	                })
+	            });
+	            mapOL.addLayer(vectorLayer);
+	            vectorLayer.set("layerName","topojson");
+			}));
         });
 
     }
+    
+    function clearOpenLayersJson(){
+    	
+    	mapOL.getLayers().forEach(function(element){
+    		if(element.get("layerName") &&  element.get("layerName").indexOf("json") > -1)
+    		mapOL.removeLayer(element);
+    	});
+    	
+    	//getLayers is marked as experimental, apparently it doesnt work properly yet, we have to call this twice to remove all layers
+    	mapOL.getLayers().forEach(function(element){
+    		if(element.get("layerName") &&  element.get("layerName").indexOf("json") > -1)
+    		mapOL.removeLayer(element);
+    	});
+    	$("#openlayers span").text("TIME");
+    };
 
+
+    //init
     $(document).ready(function() {
         addGoogleMap();
         addLeafletMap();
